@@ -20,6 +20,8 @@ const int ledPin = LED_BUILTIN;
 
 void setup()
 {
+  // Initialize serial communication
+  Serial.begin(9600);
   // Set the LED pin as an output
   pinMode(ledPin, OUTPUT);
   pinMode(RED, OUTPUT);
@@ -28,21 +30,33 @@ void setup()
   pinMode(MIC, INPUT);
 }
 
-int i = 0;
+int sound = 0;
+int min, max, current_mic;
 
 void loop()
 {
-  i = (analogRead(MIC) / 4 - 200) < 0 ? 0 : (analogRead(MIC) / 4 - 200);
+  max = 0;
+  min = 1024;
+  for (int i = 0; i < 10; i++)
+  {
+    current_mic = analogRead(MIC);
+    if (current_mic < min)
+    {
+      min = current_mic;
+    }
+    if (current_mic > max)
+    {
+      max = current_mic;
+    }
+    delay(1);
+  }
+  
+  sound = max-min;
   // Set RED pin to 50% PWM
-  analogWrite(RED, i);   // 50% of 255
-  analogWrite(GREEN, i); // 50% of 255
-  analogWrite(BLUE, i);  // 50% of 255
+  analogWrite(RED, sound);   // 50% of 255
+  analogWrite(GREEN, sound); // 50% of 255
+  analogWrite(BLUE, sound);  // 50% of 255
 
-  // Turn on the LED
-  digitalWrite(ledPin, HIGH);
-  delay(20); // Wait for 1 second
-
-  // Turn off the LED
-  digitalWrite(ledPin, LOW);
-  delay(20); // Wait for 1 second
+  // Print analogRead(MIC) to the terminal
+  Serial.println(max-min);
 }
