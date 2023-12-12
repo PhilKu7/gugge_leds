@@ -7,11 +7,11 @@
 #define TEMP_0 13
 #define Z_MAX 19
 
-#define RED MOSFET_E0
-#define GREEN MOSFET_BED
-#define BLUE MOSFET_E1
-#define MIC TEMP_0
-#define MIC_D Z_MAX
+#define PIN_RED MOSFET_E0
+#define PIN_GREEN MOSFET_BED
+#define PIN_BLUE MOSFET_E1
+#define PIN_MIC TEMP_0
+#define PIN_MIC_D Z_MAX
 
 // Number of samples to average
 const int numSamples = 100;
@@ -25,23 +25,22 @@ void setup()
   Serial.begin(115200);
   // Set the LED pin as an output
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(RED, OUTPUT);
-  pinMode(GREEN, OUTPUT);
-  pinMode(BLUE, OUTPUT);
-  pinMode(MIC, INPUT);
-  pinMode(MIC_D, INPUT);
+  pinMode(PIN_RED, OUTPUT);
+  pinMode(PIN_GREEN, OUTPUT);
+  pinMode(PIN_BLUE, OUTPUT);
+  pinMode(PIN_MIC, INPUT);
+  pinMode(PIN_MIC_D, INPUT);
 }
 
 void loop()
 {
-  // First define the variables we're going to be using
   int sound_level = 0;          // This is where we're going to store the raw analog value
   int change[numSamples] = {0}; // This is where we're going to store the derivative of the sound level
   float average_change = 0;       // This is where we're going to store the average change of the sound level
   int brightness = 0;           // This is where we're going to store the brightness of the LED
 
   // Then measure the sound level
-  sound_level = analogRead(MIC); // Read the analog value of the microphone
+  sound_level = analogRead(PIN_MIC); // Read the analog value of the microphone
 
   // Save the sound value to the circular buffer
   for (int i = numSamples - 1; i > 0; i--)
@@ -70,9 +69,9 @@ void loop()
     brightness = 0;
   }
   // Set brightness of the LEDs
-  analogWrite(RED, brightness);
-  analogWrite(GREEN, brightness);
-  analogWrite(BLUE, brightness);
+  analogWrite(PIN_RED, brightness);
+  analogWrite(PIN_GREEN, brightness);
+  analogWrite(PIN_BLUE, brightness);
 
   // Print the sound level to the Serial Monitor
   Serial.print(">Sound:");
