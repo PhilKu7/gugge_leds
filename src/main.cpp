@@ -5,11 +5,13 @@
 #define MOSFET_FAN 9
 #define MOSFET_BED 8
 #define TEMP_0 13
+#define Z_MAX 19
 
 #define RED MOSFET_E0
 #define GREEN MOSFET_BED
 #define BLUE MOSFET_E1
 #define MIC TEMP_0
+#define MIC_D Z_MAX
 
 // Number of samples to average
 const int numSamples = 10;
@@ -20,52 +22,65 @@ int micBuffer[numSamples] = {0};
 void setup()
 {
   // Initialize serial communication
-  Serial.begin(9600);
+  Serial.begin(115200);
   // Set the LED pin as an output
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(RED, OUTPUT);
   pinMode(GREEN, OUTPUT);
   pinMode(BLUE, OUTPUT);
   pinMode(MIC, INPUT);
+  pinMode(MIC_D, INPUT);
 }
 
 void loop()
 {
-  int sound = 0;
-  int min = 1024;
-  int max = 0;
-  int current_mic;
+  // First define the variables we're going to be using
+  int sound_level = 0;          // This is where we're going to store the raw analog value
+  int change[numSamples] = {0}; // This is where we're going to store the derivative of the sound level
+  float average_change = 0;       // This is where we're going to store the average change of the sound level
+  int brightness = 0;           // This is where we're going to store the brightness of the LED
 
-  for (int i = 0; i < numSamples; i++)
-  {
-    current_mic = analogRead(MIC);
-    min = min(current_mic, min);
-    max = max(current_mic, max);
-    delay(2);
-  }
+  // Then measure the sound level
+  sound_level = analogRead(MIC); // Read the analog value of the microphone
 
-  sound = max - min;
-
-  // Update the circular buffer with the current sound value
+  // Save the sound value to the circular buffer
   for (int i = numSamples - 1; i > 0; i--)
   {
     micBuffer[i] = micBuffer[i - 1];
   }
-  micBuffer[0] = sound;
+  micBuffer[0] = sound_level;
 
-  // Calculate the moving average of the sound values
-  int filteredSound = 0;
-  for (int i = 0; i < numSamples; i++)
+  // Calculate each change of the sound level
+  for (int i = 0; i < numSamples - 1; i++)
   {
-    filteredSound += micBuffer[i];
+    change[i] = micBuffer[i] - micBuffer[i + 1];
   }
-  filteredSound /= numSamples;
+  // Calculate the average change of the sound level
+  for (int i = 0; i < numSamples - 1; i++)
+  {
+    average_change += change[i];
+  }
+  average_change /= numSamples;
+  if (average_change > 0)
+  {
+    brightness = average_change*10;
+  }
+  else
+  {
+    brightness = 0;
+  }
+  // Set brightness of the LEDs
+  analogWrite(RED, brightness);
+  analogWrite(GREEN, brightness);
+  analogWrite(BLUE, brightness);
 
-  // Set RED pin to filtered sound value
-  analogWrite(RED, filteredSound);   // 50% of 255
-  analogWrite(GREEN, filteredSound); // 50% of 255
-  analogWrite(BLUE, filteredSound);  // 50% of 255
+  // Print the sound level to the Serial Monitor
+  Serial.print(">Sound:");
+  Serial.println(sound_level);
 
-  // Print filtered sound value to the terminal
-  Serial.println(filteredSound);
+  // Print the brightness to the Serial Monitor
+  Serial.print(">Brightness:");
+  Serial.println(brightness);
+  // wait 1 miliseconds before the next loop
+  delay(1);
 }
