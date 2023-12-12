@@ -33,6 +33,19 @@ void setup()
 int sound = 0;
 int min, max, current_mic;
 
+// FIR filter coefficients
+const int filterLength = 5;
+const float filterCoefficients[filterLength] = {0.2, 0.2, 0.2, 0.2, 0.2};
+
+// Circular buffers to store previous microphone readings
+float maxBuffer[filterLength] = {0};
+float minBuffer[filterLength] = {0};
+float micBuffer[filterLength] = {0}; // Add this line to declare and initialize the micBuffer array
+
+// Variables to store filtered max and min values
+float filteredMax = 0;
+float filteredMin = 1024;
+
 void loop()
 {
   max = 0;
@@ -48,15 +61,56 @@ void loop()
     {
       max = current_mic;
     }
-    delay(1);
+    delay(2);
   }
-  
-  sound = max-min;
-  // Set RED pin to 50% PWM
-  analogWrite(RED, sound);   // 50% of 255
-  analogWrite(GREEN, sound); // 50% of 255
-  analogWrite(BLUE, sound);  // 50% of 255
 
-  // Print analogRead(MIC) to the terminal
-  Serial.println(max-min);
+  // Apply filtering to max value
+  for (int i = filterLength - 1; i > 0; i--)
+  {
+    maxBuffer[i] = maxBuffer[i - 1];
+  }
+  maxBuffer[0] = max;
+
+  filteredMax = 0;
+  for (int i = 0; i < filterLength; i++)
+  {
+    filteredMax += filterCoefficients[i] * maxBuffer[i];
+  }
+
+  // Apply filtering to min value
+  for (int i = filterLength - 1; i > 0; i--)
+  {
+    minBuffer[i] = minBuffer[i - 1];
+  }
+  minBuffer[0] = min;
+
+  filteredMin = 1024;
+  for (int i = 0; i < filterLength; i++)
+  {
+    filteredMin += filterCoefficients[i] * minBuffer[i];
+  }
+
+  sound = filteredMax - filteredMin;
+
+  // Update the circular buffer with the current sound value
+  for (int i = filterLength - 1; i > 0; i--)
+  {
+    micBuffer[i] = micBuffer[i - 1];
+  }
+  micBuffer[0] = sound;
+
+  // Apply the FIR filter
+  float filteredSound = 0;
+  for (int i = 0; i < filterLength; i++)
+  {
+    filteredSound += filterCoefficients[i] * micBuffer[i];
+  }
+
+  // Set RED pin to filtered sound value
+  analogWrite(RED, filteredSound);   // 50% of 255
+  analogWrite(GREEN, filteredSound); // 50% of 255
+  analogWrite(BLUE, filteredSound);  // 50% of 255
+
+  // Print filtered sound value to the terminal
+  Serial.println(filteredSound);
 }
