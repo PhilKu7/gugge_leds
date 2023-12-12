@@ -14,7 +14,7 @@
 #define MIC_D Z_MAX
 
 // Number of samples to average
-const int numSamples = 10;
+const int numSamples = 100;
 
 // Circular buffer to store previous microphone readings
 int micBuffer[numSamples] = {0};
@@ -61,9 +61,9 @@ void loop()
     average_change += change[i];
   }
   average_change /= numSamples;
-  if (average_change > 0)
+  if (average_change*200 > 6)
   {
-    brightness = average_change*10;
+    brightness = average_change*200;
   }
   else
   {
@@ -81,6 +81,6 @@ void loop()
   // Print the brightness to the Serial Monitor
   Serial.print(">Brightness:");
   Serial.println(brightness);
-  // wait 1 miliseconds before the next loop
-  delay(1);
+  // wait 100 microseconds before the next loop
+  delayMicroseconds(100);
 }
