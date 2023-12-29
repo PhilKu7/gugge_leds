@@ -18,14 +18,12 @@
 #define SAMPLES 64              // Must be a power of 2
 #define SAMPLING_FREQUENCY 1000 // Hz, must be less than 10000 due to ADC
 
-arduinoFFT FFT = arduinoFFT(); // Create an FFT object
-
 unsigned int sampling_period_us; // Sampling period in microseconds
 unsigned long microseconds;      // microseconds since program start
 double vReal[SAMPLES];           // Create an array of size SAMPLES to hold real values
 double vImag[SAMPLES];           // Create an array of size SAMPLES to hold imaginary values
 
-float modules[3] = {0}; // This is where we're going to store the modules of the fourier transform
+float modules[3] = {0};  // This is where we're going to store the modules of the fourier transform
 int RGB_values[3] = {0}; // This is where we're going to store the RGB values
 
 // Number of samples to average
@@ -34,11 +32,13 @@ const int numSamples = 100;
 // Circular buffer to store previous microphone readings
 int micBuffer[numSamples] = {0};
 
+arduinoFFT FFT = arduinoFFT(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY); // Create an FFT object
+
 void setup()
 {
   // Initialize serial communication
   Serial.begin(115200);
-  sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
+  sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY)); // Set up sampling period in microseconds (1000 us)
   // Set the LED pin as an output
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PIN_RED, OUTPUT);
@@ -53,15 +53,28 @@ void loop()
   for (int i = 0; i < SAMPLES; i++)
   {
     microseconds = micros(); // Overflows after around 70 minutes! (4294967295 us)
-    vReal[i] = analogRead(PIN_MIC);
+    vReal[i] = analogRead(PIN_MIC)-886;
     vImag[i] = 0;
     while (micros() < (microseconds + sampling_period_us))
     {
     } // empty loop
   }
-  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+  FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  FFT.Compute(FFT_FORWARD);
+  // FFT.ComplexToMagnitude();
+  
+  // print the whole real array to the serial monitor
+  // for (int i = 0; i < SAMPLES; i++)
+  // {
+  //   Serial.print(">Real:");
+  //   Serial.println(vReal[i]);
+  //   delay(10);
+  // }
+  // Serial.print(">mic:");
+  // Serial.println(analogRead(PIN_MIC));
+
+  Serial.print(">Peak: ");
+  Serial.println(FFT.MajorPeak());
 
   for (int i = 0; i < 3; i++)
   {
@@ -93,9 +106,9 @@ void loop()
   }
 
   // convert modules to RGB values
-  RGB_values[0] = modules[0] /= 100;
-  RGB_values[1] = modules[1] * 2;
-  RGB_values[2] = modules[2] * 2;
+  RGB_values[0] = modules[0];// / 100;
+  RGB_values[1] = modules[1];// * 2;
+  RGB_values[2] = modules[2];// * 2;
 
   for (int i = 0; i < 3; i++)
   {
