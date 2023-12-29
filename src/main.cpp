@@ -1,6 +1,5 @@
 #include <Arduino.h>
-// first include a library for fourier transform
-#include <arduinoFFT.h>
+// sample the microphone and switch on the LEDs if the average derivative of the signal is above a threshold, then switch them on proportionally to the average derivative
 
 #define MOSFET_E0 10
 #define MOSFET_E1 7
@@ -15,30 +14,28 @@
 #define PIN_MIC TEMP_0
 #define PIN_MIC_D Z_MAX
 
-#define SAMPLES 64              // Must be a power of 2
-#define SAMPLING_FREQUENCY 1000 // Hz, must be less than 10000 due to ADC
+// length of the sampling buffer
+#define SAMPLES 128
+// create a buffer for the sampling values
+int samples[SAMPLES];
 
-unsigned int sampling_period_us; // Sampling period in microseconds
-unsigned long microseconds;      // microseconds since program start
-double vReal[SAMPLES];           // Create an array of size SAMPLES to hold real values
-double vImag[SAMPLES];           // Create an array of size SAMPLES to hold imaginary values
+// create a buffer for the derivative values
+int derivatives[SAMPLES - 1];
 
-float modules[3] = {0};  // This is where we're going to store the modules of the fourier transform
-int RGB_values[3] = {0}; // This is where we're going to store the RGB values
+float average_derivative = 0;
 
-// Number of samples to average
-const int numSamples = 100;
+int intensity;
 
-// Circular buffer to store previous microphone readings
-int micBuffer[numSamples] = {0};
+// create a buffer for the RGB values
+int RGB_values[3];
 
-arduinoFFT FFT = arduinoFFT(vReal, vImag, SAMPLES, SAMPLING_FREQUENCY); // Create an FFT object
+// index of the last sample
+int last_sample = 0;
 
 void setup()
 {
   // Initialize serial communication
   Serial.begin(115200);
-  sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY)); // Set up sampling period in microseconds (1000 us)
   // Set the LED pin as an output
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PIN_RED, OUTPUT);
@@ -50,77 +47,32 @@ void setup()
 
 void loop()
 {
-  for (int i = 0; i < SAMPLES; i++)
-  {
-    microseconds = micros(); // Overflows after around 70 minutes! (4294967295 us)
-    vReal[i] = analogRead(PIN_MIC)-886;
-    vImag[i] = 0;
-    while (micros() < (microseconds + sampling_period_us))
-    {
-    } // empty loop
-  }
-  FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(FFT_FORWARD);
-  // FFT.ComplexToMagnitude();
-  
-  // print the whole real array to the serial monitor
-  // for (int i = 0; i < SAMPLES; i++)
-  // {
-  //   Serial.print(">Real:");
-  //   Serial.println(vReal[i]);
-  //   delay(10);
-  // }
-  // Serial.print(">mic:");
-  // Serial.println(analogRead(PIN_MIC));
+  // save the microphone value in the buffer at the position last_sample
+  samples[last_sample] = analogRead(PIN_MIC);
+  // write the current microphone value to the serial port
+  Serial.println(">MIC: " + String(samples[last_sample]));
 
-  Serial.print(">Peak: ");
-  Serial.println(FFT.MajorPeak());
-
-  for (int i = 0; i < 3; i++)
+  // calculate each derivative value
+  for (int i = 0; i < SAMPLES - 1; i++)
   {
-    modules[i] = 0;
-    RGB_values[i] = 0;
+    derivatives[i] = samples[i + 1] - samples[i];
   }
-
-  for (int i = 1; i < SAMPLES / 2; i++)
+  // calculate the average derivative
+  for (int i = 0; i < SAMPLES - 1; i++)
   {
-    double a = pow(vReal[i], 2);
-    double b = pow(vImag[i], 2);
-    if (i <= SAMPLES / 6)
-    {
-      modules[0] += sqrt(a + b);
-    }
-    else if (i <= SAMPLES / 3)
-    {
-      modules[1] += sqrt(a + b);
-    }
-    else
-    {
-      modules[2] += sqrt(a + b);
-    }
+    average_derivative += derivatives[i];
   }
+  average_derivative /= SAMPLES - 1;
 
-  for (int i = 0; i < 3; i++)
-  {
-    modules[i] /= SAMPLES / 6;
-  }
+  // print the average derivative
+  Serial.println(">DER: " + String(average_derivative));
+
+  intensity = average_derivative*10;
 
   // convert modules to RGB values
-  RGB_values[0] = modules[0];// / 100;
-  RGB_values[1] = modules[1];// * 2;
-  RGB_values[2] = modules[2];// * 2;
-
-  for (int i = 0; i < 3; i++)
-  {
-    RGB_values[i] = modules[i];
-  }
-
-  Serial.print(">Red:");
-  Serial.println(RGB_values[0]);
-  Serial.print(">Green:");
-  Serial.println(RGB_values[1]);
-  Serial.print(">Blue:");
-  Serial.println(RGB_values[2]);
+  RGB_values[0] = intensity;
+  RGB_values[1] = intensity;
+  RGB_values[2] = intensity;
 
   // limit all the brightnesses between 0 and 255
   for (int i = 0; i < 3; i++)
@@ -138,5 +90,13 @@ void loop()
   analogWrite(PIN_GREEN, RGB_values[1]);
   analogWrite(PIN_BLUE, RGB_values[2]);
 
-  delay(25);
+  // increment last_sample
+  last_sample++;
+  // if last_sample is equal to SAMPLES, reset it to 0
+  if (last_sample == SAMPLES)
+  {
+    last_sample = 0;
+  }
+  // sleep for 100 microseconds
+  delayMicroseconds(100);
 }
