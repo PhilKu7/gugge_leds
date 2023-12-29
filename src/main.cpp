@@ -1,5 +1,5 @@
 #include <Arduino.h>
-// sample the microphone and switch on the LEDs if the average derivative of the signal is above a threshold, then switch them on proportionally to the average derivative
+// sample the microphone and switch on the LEDs if the weighted average derivative of the signal is above a threshold, then switch them on proportionally to the average derivative
 
 #define MOSFET_E0 10
 #define MOSFET_E1 7
@@ -15,13 +15,15 @@
 #define PIN_MIC_D Z_MAX
 
 // length of the sampling buffer
-#define SAMPLES 128
+#define SAMPLES 15
 // create a buffer for the sampling values
 int samples[SAMPLES];
 
 // create a buffer for the derivative values
 int derivatives[SAMPLES - 1];
 
+float weight;
+float decay_factor;
 float average_derivative = 0;
 
 int intensity;
@@ -47,27 +49,30 @@ void setup()
 
 void loop()
 {
+  weight = 1.0;
+  decay_factor = 0.6;
   // save the microphone value in the buffer at the position last_sample
   samples[last_sample] = analogRead(PIN_MIC);
   // write the current microphone value to the serial port
   Serial.println(">MIC: " + String(samples[last_sample]));
 
-  // calculate each derivative value
+  // calculate each derivative value beginning at the last sample
   for (int i = 0; i < SAMPLES - 1; i++)
   {
-    derivatives[i] = samples[i + 1] - samples[i];
+    derivatives[i] = samples[(last_sample + i + 1) % SAMPLES] - samples[(last_sample + i) % SAMPLES];
   }
-  // calculate the average derivative
+  // calculate the average derivative by using weighted average (the most recent values have more weight, then they decay exponentially)
   for (int i = 0; i < SAMPLES - 1; i++)
   {
-    average_derivative += derivatives[i];
+    average_derivative += weight * derivatives[i];
+    weight *= decay_factor;
   }
   average_derivative /= SAMPLES - 1;
 
   // print the average derivative
   Serial.println(">DER: " + String(average_derivative));
 
-  intensity = average_derivative*10;
+  intensity = average_derivative > 0.3 ? average_derivative * 20 : 0;
 
   // convert modules to RGB values
   RGB_values[0] = intensity;
@@ -98,5 +103,6 @@ void loop()
     last_sample = 0;
   }
   // sleep for 100 microseconds
-  delayMicroseconds(100);
+  delay(1);
+  // delayMicroseconds(100);
 }
