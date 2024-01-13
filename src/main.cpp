@@ -34,6 +34,10 @@ int RGB_values[3];
 // index of the last sample
 int last_sample = 0;
 
+float background_light = 5;
+
+float colour_scaling[3] = {6, 2, 0.1};
+
 void setup()
 {
   // Initialize serial communication
@@ -72,23 +76,22 @@ void loop()
   // print the average derivative
   Serial.println(">DER: " + String(average_derivative));
 
-  intensity = average_derivative > 0.3 ? average_derivative * 20 : 0;
+  intensity = (average_derivative - 0.35) * 20;
 
-  // convert modules to RGB values
-  RGB_values[0] = intensity;
-  RGB_values[1] = intensity;
-  RGB_values[2] = intensity;
 
   // limit all the brightnesses between 0 and 255
   for (int i = 0; i < 3; i++)
   {
+  // convert modules to RGB values
+    RGB_values[i] = intensity * colour_scaling[i];
+    if (RGB_values[i] < 0)
+    {
+      RGB_values[i] = 0;
+    }
+    RGB_values[i] += background_light*colour_scaling[i];
     if (RGB_values[i] > 255)
     {
       RGB_values[i] = 255;
-    }
-    else if (RGB_values[i] < 0)
-    {
-      RGB_values[i] = 0;
     }
   }
   analogWrite(PIN_RED, RGB_values[0]);
